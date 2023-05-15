@@ -52,9 +52,7 @@ import (
 	"go.temporal.io/server/common/tasktoken"
 )
 
-// TODO: port the following deprecated FE logic over to history service and expose as gRPC endpoints
-
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/getworkflowexecutionhistory/api.go
 func (wh *WorkflowHandler) getWorkflowExecutionHistory(
 	ctx context.Context,
 	request *workflowservice.GetWorkflowExecutionHistoryRequest,
@@ -307,7 +305,7 @@ func (wh *WorkflowHandler) getWorkflowExecutionHistory(
 	}, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/getworkflowexecutionhistoryreverse/api.go
 func (wh *WorkflowHandler) getWorkflowExecutionHistoryReverse(
 	ctx context.Context,
 	request *workflowservice.GetWorkflowExecutionHistoryReverseRequest,
@@ -415,7 +413,7 @@ func (wh *WorkflowHandler) getWorkflowExecutionHistoryReverse(
 	}, nil
 }
 
-// DEPRECATED
+// DEPRECATED: TBD
 func (wh *WorkflowHandler) pollWorkflowTaskQueue(ctx context.Context, request *workflowservice.PollWorkflowTaskQueueRequest) (_ *workflowservice.PollWorkflowTaskQueueResponse, retError error) {
 	callTime := time.Now().UTC()
 
@@ -496,7 +494,7 @@ func (wh *WorkflowHandler) pollWorkflowTaskQueue(ctx context.Context, request *w
 	return resp, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO WorkflowHandler.RespondWorkflowTaskCompleted() and ./service/history/workflowTaskHandlerCallbacks.go
 func (wh *WorkflowHandler) respondWorkflowTaskCompleted(
 	ctx context.Context,
 	request *workflowservice.RespondWorkflowTaskCompletedRequest,
@@ -550,7 +548,7 @@ func (wh *WorkflowHandler) respondWorkflowTaskCompleted(
 	return completedResp, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/get_history_util.go
 func (wh *WorkflowHandler) getRawHistory(
 	ctx context.Context,
 	metricsHandler metrics.Handler,
@@ -611,7 +609,7 @@ func (wh *WorkflowHandler) getRawHistory(
 	return rawHistory, resp.NextPageToken, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/get_history_util.go
 func (wh *WorkflowHandler) getHistory(
 	ctx context.Context,
 	metricsHandler metrics.Handler,
@@ -691,7 +689,7 @@ func (wh *WorkflowHandler) getHistory(
 	return executionHistory, nextPageToken, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/get_history_util.go
 func (wh *WorkflowHandler) getHistoryReverse(
 	ctx context.Context,
 	metricsHandler metrics.Handler,
@@ -749,7 +747,7 @@ func (wh *WorkflowHandler) getHistoryReverse(
 	return executionHistory, nextPageToken, newNextEventID, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/workflowTaskHandlerCallbacks.go
 func (wh *WorkflowHandler) createPollWorkflowTaskQueueResponse(
 	ctx context.Context,
 	namespaceID namespace.ID,
@@ -853,7 +851,7 @@ func (wh *WorkflowHandler) createPollWorkflowTaskQueueResponse(
 	return resp, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/getworkflowexecutionhistory/api.go
 func (wh *WorkflowHandler) makeFakeContinuedAsNewEvent(
 	_ context.Context,
 	lastEvent *historypb.HistoryEvent,
@@ -907,7 +905,7 @@ func (wh *WorkflowHandler) makeFakeContinuedAsNewEvent(
 	}, nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/trim_history_util.go
 func (wh *WorkflowHandler) trimHistoryNode(
 	ctx context.Context,
 	namespaceID string,
@@ -942,7 +940,7 @@ func (wh *WorkflowHandler) trimHistoryNode(
 	}
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/get_history_util.go
 func (wh *WorkflowHandler) processOutgoingSearchAttributes(events []*historypb.HistoryEvent, namespace namespace.Name) error {
 	saTypeMap, err := wh.saProvider.GetSearchAttributes(wh.visibilityMrg.GetIndexName(), false)
 	if err != nil {
@@ -975,7 +973,7 @@ func (wh *WorkflowHandler) processOutgoingSearchAttributes(events []*historypb.H
 	return nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/get_history_util.go
 func (wh *WorkflowHandler) validateTransientWorkflowTaskEvents(
 	eventIDOffset int64,
 	transientWorkflowTaskInfo *historyspb.TransientWorkflowTaskInfo,
@@ -995,7 +993,7 @@ func (wh *WorkflowHandler) validateTransientWorkflowTaskEvents(
 	return nil
 }
 
-// DEPRECATED
+// DEPRECATED: DO NOT MODIFY UNLESS ALSO APPLIED TO ./service/history/api/utils/get_history_util.go
 func (wh *WorkflowHandler) verifyHistoryIsComplete(
 	events []*historypb.HistoryEvent,
 	expectedFirstEventID int64,
