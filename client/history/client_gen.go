@@ -154,6 +154,30 @@ func (c *clientImpl) DescribeWorkflowExecution(
 	return response, nil
 }
 
+func (c *clientImpl) ForceDeleteWorkflowExecution(
+	ctx context.Context,
+	request *historyservice.ForceDeleteWorkflowExecutionRequest,
+	opts ...grpc.CallOption,
+) (*historyservice.ForceDeleteWorkflowExecutionResponse, error) {
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	if err != nil {
+		return nil, err
+	}
+	var response *historyservice.ForceDeleteWorkflowExecutionResponse
+	op := func(ctx context.Context, client historyservice.HistoryServiceClient) error {
+		var err error
+		ctx, cancel := c.createContext(ctx)
+		defer cancel()
+		response, err = client.ForceDeleteWorkflowExecution(ctx, request, opts...)
+		return err
+	}
+	err = c.executeWithRedirect(ctx, client, op)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
 func (c *clientImpl) GenerateLastHistoryReplicationTasks(
 	ctx context.Context,
 	request *historyservice.GenerateLastHistoryReplicationTasksRequest,
@@ -269,6 +293,78 @@ func (c *clientImpl) GetShard(
 		ctx, cancel := c.createContext(ctx)
 		defer cancel()
 		response, err = client.GetShard(ctx, request, opts...)
+		return err
+	}
+	err = c.executeWithRedirect(ctx, client, op)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (c *clientImpl) GetWorkflowExecutionHistory(
+	ctx context.Context,
+	request *historyservice.GetWorkflowExecutionHistoryRequest,
+	opts ...grpc.CallOption,
+) (*historyservice.GetWorkflowExecutionHistoryResponse, error) {
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	if err != nil {
+		return nil, err
+	}
+	var response *historyservice.GetWorkflowExecutionHistoryResponse
+	op := func(ctx context.Context, client historyservice.HistoryServiceClient) error {
+		var err error
+		ctx, cancel := c.createContext(ctx)
+		defer cancel()
+		response, err = client.GetWorkflowExecutionHistory(ctx, request, opts...)
+		return err
+	}
+	err = c.executeWithRedirect(ctx, client, op)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (c *clientImpl) GetWorkflowExecutionHistoryReverse(
+	ctx context.Context,
+	request *historyservice.GetWorkflowExecutionHistoryReverseRequest,
+	opts ...grpc.CallOption,
+) (*historyservice.GetWorkflowExecutionHistoryReverseResponse, error) {
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	if err != nil {
+		return nil, err
+	}
+	var response *historyservice.GetWorkflowExecutionHistoryReverseResponse
+	op := func(ctx context.Context, client historyservice.HistoryServiceClient) error {
+		var err error
+		ctx, cancel := c.createContext(ctx)
+		defer cancel()
+		response, err = client.GetWorkflowExecutionHistoryReverse(ctx, request, opts...)
+		return err
+	}
+	err = c.executeWithRedirect(ctx, client, op)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+func (c *clientImpl) GetWorkflowExecutionRawHistoryV2(
+	ctx context.Context,
+	request *historyservice.GetWorkflowExecutionRawHistoryV2Request,
+	opts ...grpc.CallOption,
+) (*historyservice.GetWorkflowExecutionRawHistoryV2Response, error) {
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	if err != nil {
+		return nil, err
+	}
+	var response *historyservice.GetWorkflowExecutionRawHistoryV2Response
+	op := func(ctx context.Context, client historyservice.HistoryServiceClient) error {
+		var err error
+		ctx, cancel := c.createContext(ctx)
+		defer cancel()
+		response, err = client.GetWorkflowExecutionRawHistoryV2(ctx, request, opts...)
 		return err
 	}
 	err = c.executeWithRedirect(ctx, client, op)

@@ -99,6 +99,7 @@ func NewTestController(
 		MetricsHandler:              resource.GetMetricsHandler(),
 		NamespaceRegistry:           resource.GetNamespaceRegistry(),
 		PayloadSerializer:           resource.GetPayloadSerializer(),
+		VisibilityManager:           resource.GetVisibilityManager(),
 		PersistenceExecutionManager: resource.GetExecutionManager(),
 		PersistenceShardManager:     resource.GetShardManager(),
 		SaMapperProvider:            resource.GetSearchAttributesMapperProvider(),
