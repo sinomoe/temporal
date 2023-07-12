@@ -77,7 +77,6 @@ import (
 	"go.temporal.io/server/common/searchattribute"
 	"go.temporal.io/server/service/history/api"
 	"go.temporal.io/server/service/history/api/getworkflowexecutionrawhistoryv2"
-	"go.temporal.io/server/service/history/api/utils"
 	"go.temporal.io/server/service/history/configs"
 	"go.temporal.io/server/service/history/consts"
 	"go.temporal.io/server/service/history/events"
@@ -232,6 +231,7 @@ func (s *engineSuite) SetupTest() {
 		workflowResetter:           s.mockWorkflowResetter,
 		workflowConsistencyChecker: api.NewWorkflowConsistencyChecker(s.mockShard, s.workflowCache),
 		throttledLogger:            log.NewNoopLogger(),
+		persistenceVisibilityMgr:   s.mockVisibilityMgr,
 	}
 	s.mockShard.SetEngineForTesting(h)
 	h.workflowTaskHandler = newWorkflowTaskHandlerCallback(h)
@@ -5367,7 +5367,7 @@ func (s *engineSuite) TestGetHistory() {
 	s.mockNamespaceCache.EXPECT().GetNamespaceName(tests.NamespaceID).Return(tests.Namespace, nil)
 	s.mockVisibilityMgr.EXPECT().GetIndexName().Return(esIndexName).AnyTimes()
 
-	history, token, err := utils.GetHistory(
+	history, token, err := api.GetHistory(
 		context.Background(),
 		s.mockShard,
 		tests.NamespaceID,
@@ -5381,6 +5381,7 @@ func (s *engineSuite) TestGetHistory() {
 		[]byte{},
 		nil,
 		branchToken,
+		s.mockVisibilityMgr,
 	)
 	s.NoError(err)
 	s.NotNil(history)
@@ -5395,13 +5396,15 @@ func (s *engineSuite) TestGetWorkflowExecutionHistory() {
 	newRunID := uuid.New()
 
 	req := &historyservice.GetWorkflowExecutionHistoryRequest{
-		NamespaceId:            tests.NamespaceID.String(),
-		Execution:              &we,
-		MaximumPageSize:        10,
-		NextPageToken:          nil,
-		WaitNewEvent:           true,
-		HistoryEventFilterType: enumspb.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
-		SkipArchival:           true,
+		NamespaceId: tests.NamespaceID.String(),
+		Request: &workflowservice.GetWorkflowExecutionHistoryRequest{
+			Execution:              &we,
+			MaximumPageSize:        10,
+			NextPageToken:          nil,
+			WaitNewEvent:           true,
+			HistoryEventFilterType: enumspb.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+			SkipArchival:           true,
+		},
 		SendRawWorkflowHistory: false,
 		FollowsNextRunId:       true,
 	}
@@ -5477,8 +5480,8 @@ func (s *engineSuite) TestGetWorkflowExecutionHistory() {
 	ctx := headers.SetVersionsForTests(context.Background(), newGoSDKVersion, headers.ClientNameGoSDK, headers.SupportedServerVersions, headers.AllFeatures)
 	resp, err := engine.GetWorkflowExecutionHistory(ctx, req)
 	s.NoError(err)
-	s.False(resp.Archived)
-	event := resp.History.Events[0]
+	s.False(resp.Response.Archived)
+	event := resp.Response.History.Events[0]
 	s.Equal(int64(5), event.EventId)
 	s.Equal(enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED, event.EventType)
 	attrs := event.GetWorkflowExecutionFailedEventAttributes()
@@ -5493,8 +5496,8 @@ func (s *engineSuite) TestGetWorkflowExecutionHistory() {
 	req.FollowsNextRunId = false
 	resp, err = engine.GetWorkflowExecutionHistory(ctx, req)
 	s.NoError(err)
-	s.False(resp.Archived)
-	event = resp.History.Events[0]
+	s.False(resp.Response.Archived)
+	event = resp.Response.History.Events[0]
 	s.Equal(int64(5), event.EventId)
 	s.Equal(enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_CONTINUED_AS_NEW, event.EventType)
 	attrs2 := event.GetWorkflowExecutionContinuedAsNewEventAttributes()
@@ -5510,7 +5513,7 @@ func (s *engineSuite) TestGetWorkflowExecutionHistory_RawHistoryWithTransientDec
 
 	branchToken := []byte{1, 2, 3}
 	persistenceToken := []byte("some random persistence token")
-	nextPageToken, err := utils.SerializeHistoryToken(&tokenspb.HistoryContinuation{
+	nextPageToken, err := api.SerializeHistoryToken(&tokenspb.HistoryContinuation{
 		RunId:            we.GetRunId(),
 		FirstEventId:     common.FirstEventID,
 		NextEventId:      5,
@@ -5531,13 +5534,15 @@ func (s *engineSuite) TestGetWorkflowExecutionHistory_RawHistoryWithTransientDec
 	})
 	s.NoError(err)
 	req := &historyservice.GetWorkflowExecutionHistoryRequest{
-		NamespaceId:            tests.NamespaceID.String(),
-		Execution:              &we,
-		MaximumPageSize:        10,
-		NextPageToken:          nextPageToken,
-		WaitNewEvent:           false,
-		HistoryEventFilterType: enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-		SkipArchival:           true,
+		NamespaceId: tests.NamespaceID.String(),
+		Request: &workflowservice.GetWorkflowExecutionHistoryRequest{
+			Execution:              &we,
+			MaximumPageSize:        10,
+			NextPageToken:          nextPageToken,
+			WaitNewEvent:           false,
+			HistoryEventFilterType: enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+			SkipArchival:           true,
+		},
 		SendRawWorkflowHistory: true,
 		FollowsNextRunId:       true,
 	}
@@ -5574,13 +5579,13 @@ func (s *engineSuite) TestGetWorkflowExecutionHistory_RawHistoryWithTransientDec
 
 	resp, err := engine.GetWorkflowExecutionHistory(context.Background(), req)
 	s.NoError(err)
-	s.False(resp.Archived)
-	s.Empty(resp.History.Events)
-	s.Len(resp.RawHistory, 4)
-	event, err := s.mockShard.GetPayloadSerializer().DeserializeEvent(resp.RawHistory[2])
+	s.False(resp.Response.Archived)
+	s.Empty(resp.Response.History.Events)
+	s.Len(resp.Response.RawHistory, 4)
+	event, err := s.mockShard.GetPayloadSerializer().DeserializeEvent(resp.Response.RawHistory[2])
 	s.NoError(err)
 	s.Equal(enumspb.EVENT_TYPE_WORKFLOW_TASK_SCHEDULED, event.EventType)
-	event, err = s.mockShard.GetPayloadSerializer().DeserializeEvent(resp.RawHistory[3])
+	event, err = s.mockShard.GetPayloadSerializer().DeserializeEvent(resp.Response.RawHistory[3])
 	s.NoError(err)
 	s.Equal(enumspb.EVENT_TYPE_WORKFLOW_TASK_STARTED, event.EventType)
 }

@@ -307,7 +307,7 @@ func (c *clientImpl) GetWorkflowExecutionHistory(
 	request *historyservice.GetWorkflowExecutionHistoryRequest,
 	opts ...grpc.CallOption,
 ) (*historyservice.GetWorkflowExecutionHistoryResponse, error) {
-	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetRequest().GetExecution().GetWorkflowId())
 	if err != nil {
 		return nil, err
 	}

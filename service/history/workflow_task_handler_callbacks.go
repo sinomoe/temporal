@@ -52,12 +52,12 @@ import (
 	"go.temporal.io/server/common/namespace"
 	"go.temporal.io/server/common/payloads"
 	"go.temporal.io/server/common/persistence"
+	"go.temporal.io/server/common/persistence/visibility/manager"
 	"go.temporal.io/server/common/primitives/timestamp"
 	"go.temporal.io/server/common/searchattribute"
 	serviceerrors "go.temporal.io/server/common/serviceerror"
 	"go.temporal.io/server/internal/effect"
 	"go.temporal.io/server/service/history/api"
-	"go.temporal.io/server/service/history/api/utils"
 	"go.temporal.io/server/service/history/configs"
 	"go.temporal.io/server/service/history/consts"
 	"go.temporal.io/server/service/history/events"
@@ -95,6 +95,7 @@ type (
 		commandAttrValidator           *commandAttrValidator
 		searchAttributesMapperProvider searchattribute.MapperProvider
 		searchAttributesValidator      *searchattribute.Validator
+		persistenceVisibilityMgr       manager.VisibilityManager
 	}
 )
 
@@ -118,6 +119,7 @@ func newWorkflowTaskHandlerCallback(historyEngine *historyEngineImpl) *workflowT
 		),
 		searchAttributesMapperProvider: historyEngine.shard.GetSearchAttributesMapperProvider(),
 		searchAttributesValidator:      historyEngine.searchAttributesValidator,
+		persistenceVisibilityMgr:       historyEngine.persistenceVisibilityMgr,
 	}
 }
 
@@ -777,8 +779,9 @@ func (handler *workflowTaskHandlerCallbacksImpl) handleWorkflowTaskCompleted(
 		// sticky is always enabled when worker request for new workflow task from RespondWorkflowTaskCompleted
 		resp.StartedResponse.StickyExecutionEnabled = true
 
+
 		if req.WithNewWorkflowTask {
-			resp.NewWorkflowTask, err = handler.withNewWorkflowTask(ctx, req, resp.StartedResponse)
+			resp.NewWorkflowTask, err = handler.withNewWorkflowTask(ctx, namespaceEntry.Name(), req, resp.StartedResponse)
 			if err != nil {
 				return nil, err
 			}
@@ -944,7 +947,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) createPollWorkflowTaskQueueResp
 		//  long term solution should check event batch pointing backwards within history store
 		defer func() {
 			if _, ok := retError.(*serviceerror.DataLoss); ok {
-				utils.TrimHistoryNode(
+				api.TrimHistoryNode(
 					ctx,
 					handler.shard,
 					handler.workflowConsistencyChecker,
@@ -955,7 +958,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) createPollWorkflowTaskQueueResp
 				)
 			}
 		}()
-		history, persistenceToken, err = utils.GetHistory(
+		history, persistenceToken, err = api.GetHistory(
 			ctx,
 			handler.shard,
 			namespaceID,
@@ -966,13 +969,14 @@ func (handler *workflowTaskHandlerCallbacksImpl) createPollWorkflowTaskQueueResp
 			nil,
 			matchingResp.GetTransientWorkflowTask(),
 			branchToken,
+			handler.persistenceVisibilityMgr,
 		)
 		if err != nil {
 			return nil, err
 		}
 
 		if len(persistenceToken) != 0 {
-			continuation, err = utils.SerializeHistoryToken(&tokenspb.HistoryContinuation{
+			continuation, err = api.SerializeHistoryToken(&tokenspb.HistoryContinuation{
 				RunId:                 matchingResp.WorkflowExecution.GetRunId(),
 				FirstEventId:          firstEventID,
 				NextEventId:           nextEventID,
@@ -1009,6 +1013,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) createPollWorkflowTaskQueueResp
 
 func (handler *workflowTaskHandlerCallbacksImpl) withNewWorkflowTask(
 	ctx context.Context,
+	namespaceName namespace.Name,
 	request *historyservice.RespondWorkflowTaskCompletedRequest,
 	response *historyservice.RecordWorkflowTaskStartedResponse,
 ) (*workflowservice.PollWorkflowTaskQueueResponse, error) {
@@ -1039,7 +1044,7 @@ func (handler *workflowTaskHandlerCallbacksImpl) withNewWorkflowTask(
 		namespace.ID(taskToken.NamespaceId),
 		matchingResp,
 		matchingResp.GetBranchToken(),
-		request.MaximumPageSize,
+		int32(handler.config.HistoryMaxPageSize(namespaceName.String())),
 	)
 }
 
