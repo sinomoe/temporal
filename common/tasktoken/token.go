@@ -22,36 +22,55 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package ringpop
+package tasktoken
 
 import (
-	"go.uber.org/fx"
-
-	"go.temporal.io/server/common/membership"
+	v11 "go.temporal.io/server/api/clock/v1"
+	tokenspb "go.temporal.io/server/api/token/v1"
 )
 
-// Module provides membership objects given the types in factoryParams.
-var Module = fx.Provide(
-	provideFactory,
-	provideMembership,
-	provideHostInfoProvider,
-)
-
-func provideFactory(lc fx.Lifecycle, params factoryParams) (*factory, error) {
-	f, err := newFactory(params)
-	if err != nil {
-		return nil, err
+func NewWorkflowTaskToken(
+	namespaceID string,
+	workflowID string,
+	runID string,
+	scheduledEventID int64,
+	startedEventId int64,
+	attempt int32,
+	clock *v11.VectorClock,
+	version int64,
+) *tokenspb.Task {
+	return &tokenspb.Task{
+		NamespaceId:      namespaceID,
+		WorkflowId:       workflowID,
+		RunId:            runID,
+		ScheduledEventId: scheduledEventID,
+		StartedEventId:   startedEventId,
+		Attempt:          attempt,
+		Clock:            clock,
+		Version:          version,
 	}
-	lc.Append(fx.StopHook(f.closeTChannel))
-	return f, nil
 }
 
-func provideMembership(lc fx.Lifecycle, f *factory) membership.Monitor {
-	m := f.getMonitor()
-	lc.Append(fx.StopHook(m.Stop))
-	return m
-}
-
-func provideHostInfoProvider(lc fx.Lifecycle, f *factory) (membership.HostInfoProvider, error) {
-	return f.getHostInfoProvider()
+func NewActivityTaskToken(
+	namespaceID string,
+	workflowID string,
+	runID string,
+	scheduledEventID int64,
+	activityId string,
+	activityType string,
+	attempt int32,
+	clock *v11.VectorClock,
+	version int64,
+) *tokenspb.Task {
+	return &tokenspb.Task{
+		NamespaceId:      namespaceID,
+		WorkflowId:       workflowID,
+		RunId:            runID,
+		ScheduledEventId: scheduledEventID,
+		ActivityType:     activityType,
+		Attempt:          attempt,
+		ActivityId:       activityId,
+		Clock:            clock,
+		Version:          version,
+	}
 }

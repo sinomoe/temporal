@@ -61,6 +61,7 @@ import (
 	"go.temporal.io/server/common/persistence/visibility/manager"
 	"go.temporal.io/server/common/primitives/timestamp"
 	serviceerrors "go.temporal.io/server/common/serviceerror"
+	"go.temporal.io/server/common/tasktoken"
 	"go.temporal.io/server/common/worker_versioning"
 )
 
@@ -458,12 +459,7 @@ func (e *matchingEngineImpl) DispatchSpooledTask(
 		taskQueue, userDataChanged, err := e.redirectToVersionedQueueForAdd(
 			ctx, unversionedOrigTaskQueue, directive, stickyInfo)
 		if err != nil {
-			// Return error for tasks with compatiblity constraints when user data is disabled so they can be retried later.
-			// "default" directive tasks become unversioned.
-			if !errors.Is(err, errUserDataDisabled) || directive.GetBuildId() != "" {
-				return err
-			}
-			err = nil
+			return err
 		}
 		sticky := stickyInfo.kind == enumspb.TASK_QUEUE_KIND_STICKY
 		tqm, err := e.getTaskQueueManager(ctx, taskQueue, stickyInfo, !sticky)
@@ -957,9 +953,6 @@ func (e *matchingEngineImpl) GetWorkerBuildIdCompatibility(
 	}
 	userData, _, err := tqMgr.GetUserData(ctx)
 	if err != nil {
-		if _, ok := err.(*serviceerror.NotFound); ok {
-			return &matchingservice.GetWorkerBuildIdCompatibilityResponse{}, nil
-		}
 		return nil, err
 	}
 	return &matchingservice.GetWorkerBuildIdCompatibilityResponse{
@@ -1014,7 +1007,7 @@ func (e *matchingEngineImpl) GetTaskQueueUserData(
 			} else if userData.Version < version {
 				// This is highly unlikely but may happen due to an edge case in during ownership transfer.
 				// We rely on client retries in this case to let the system eventually self-heal.
-				return nil, serviceerror.NewFailedPrecondition(
+				return nil, serviceerror.NewInvalidArgument(
 					"requested task queue user data for version greater than known version")
 			}
 		}
@@ -1303,15 +1296,16 @@ func (e *matchingEngineImpl) createPollWorkflowTaskQueueResponse(
 		}
 		serializedToken, _ = e.tokenSerializer.SerializeQueryTaskToken(queryTaskToken)
 	} else {
-		taskToken := &tokenspb.Task{
-			NamespaceId:      task.event.Data.GetNamespaceId(),
-			WorkflowId:       task.event.Data.GetWorkflowId(),
-			RunId:            task.event.Data.GetRunId(),
-			ScheduledEventId: historyResponse.GetScheduledEventId(),
-			StartedEventId:   historyResponse.GetStartedEventId(),
-			Attempt:          historyResponse.GetAttempt(),
-			Clock:            historyResponse.GetClock(),
-		}
+		taskToken := tasktoken.NewWorkflowTaskToken(
+			task.event.Data.GetNamespaceId(),
+			task.event.Data.GetWorkflowId(),
+			task.event.Data.GetRunId(),
+			historyResponse.GetScheduledEventId(),
+			historyResponse.GetStartedEventId(),
+			historyResponse.GetAttempt(),
+			historyResponse.GetClock(),
+			historyResponse.GetVersion(),
+		)
 		serializedToken, _ = e.tokenSerializer.Serialize(taskToken)
 		if task.responseC == nil {
 			ct := timestamp.TimeValue(task.event.Data.CreateTime)
@@ -1353,17 +1347,17 @@ func (e *matchingEngineImpl) createPollActivityTaskQueueResponse(
 		metricsHandler.Timer(metrics.AsyncMatchLatencyPerTaskQueue.GetMetricName()).Record(time.Since(ct))
 	}
 
-	taskToken := &tokenspb.Task{
-		NamespaceId:      task.event.Data.GetNamespaceId(),
-		WorkflowId:       task.event.Data.GetWorkflowId(),
-		RunId:            task.event.Data.GetRunId(),
-		ScheduledEventId: task.event.Data.GetScheduledEventId(),
-		Attempt:          historyResponse.GetAttempt(),
-		ActivityId:       attributes.GetActivityId(),
-		ActivityType:     attributes.GetActivityType().GetName(),
-		Clock:            historyResponse.GetClock(),
-	}
-
+	taskToken := tasktoken.NewActivityTaskToken(
+		task.event.Data.GetNamespaceId(),
+		task.event.Data.GetWorkflowId(),
+		task.event.Data.GetRunId(),
+		task.event.Data.GetScheduledEventId(),
+		attributes.GetActivityId(),
+		attributes.GetActivityType().GetName(),
+		historyResponse.GetAttempt(),
+		historyResponse.GetClock(),
+		historyResponse.GetVersion(),
+	)
 	serializedToken, _ := e.tokenSerializer.Serialize(taskToken)
 
 	return &matchingservice.PollActivityTaskQueueResponse{
@@ -1503,7 +1497,11 @@ func (e *matchingEngineImpl) redirectToVersionedQueueForAdd(
 	// Have to look up versioning data.
 	userData, userDataChanged, err := baseTqm.GetUserData(ctx)
 	if err != nil {
-		return taskQueue, userDataChanged, err
+		if errors.Is(err, errUserDataDisabled) && buildId == "" {
+			// When user data disabled, send "default" tasks to unversioned queue.
+			return taskQueue, userDataChanged, nil
+		}
+		return nil, nil, err
 	}
 	data := userData.GetData().GetVersioningData()
 
