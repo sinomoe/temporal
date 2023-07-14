@@ -108,11 +108,7 @@ func (l ClockedRateLimiter) Wait(ctx context.Context) error {
 func (l ClockedRateLimiter) WaitN(ctx context.Context, token int) error {
 	reservation := ClockedReservation{l.rateLimiter.ReserveN(l.clock.Now(), token), l.clock}
 	if !reservation.OK() {
-		return fmt.Errorf(
-			"%w: reservation would delay for %v",
-			ErrRateLimiterReservationCannotBeMade,
-			reservation.Delay(),
-		)
+		return fmt.Errorf("%w: WaitN(n=%d)", ErrRateLimiterReservationCannotBeMade, token)
 	}
 
 	waitDuration := reservation.Delay()
@@ -126,11 +122,7 @@ func (l ClockedRateLimiter) WaitN(ctx context.Context, token int) error {
 	if deadline, ok := ctx.Deadline(); ok {
 		if l.clock.Now().Add(waitDuration).After(deadline) {
 			reservation.Cancel()
-			return fmt.Errorf(
-				"%w: reservation would delay for %v",
-				ErrRateLimiterReservationWouldExceedContextDeadline,
-				reservation.Delay(),
-			)
+			return fmt.Errorf("%w: WaitN(n=%d)", ErrRateLimiterReservationWouldExceedContextDeadline, token)
 		}
 	}
 

@@ -47,11 +47,11 @@ var _ RateLimiter = (*RateLimiterImpl)(nil)
 
 // NewRateLimiter returns a new rate limiter that can handle dynamic
 // configuration updates
-func NewRateLimiter(newRate float64, newBurst int) *RateLimiterImpl {
-	limiter := rate.NewLimiter(rate.Limit(newRate), newBurst)
+func NewRateLimiter(newRPS float64, newBurst int) *RateLimiterImpl {
+	limiter := rate.NewLimiter(rate.Limit(newRPS), newBurst)
 	clock := clockwork.NewRealClock()
 	rl := &RateLimiterImpl{
-		rps:                newRate,
+		rps:                newRPS,
 		burst:              newBurst,
 		clock:              clock,
 		ClockedRateLimiter: NewClockedRateLimiter(limiter, clock),
@@ -61,7 +61,7 @@ func NewRateLimiter(newRate float64, newBurst int) *RateLimiterImpl {
 }
 
 // SetRate set the rate of the rate limiter
-func (rl *RateLimiterImpl) SetRate(rps float64) {
+func (rl *RateLimiterImpl) SetRPS(rps float64) {
 	rl.refreshInternalRateLimiterImpl(&rps, nil)
 }
 
@@ -78,12 +78,12 @@ func (rl *RateLimiterImpl) ReserveN(now time.Time, n int) Reservation {
 	return rl.ClockedRateLimiter.ReserveN(now, n)
 }
 
-// SetRateBurst set the rate & burst of the rate limiter
+// SetRateBurst set the rps & burst of the rate limiter
 func (rl *RateLimiterImpl) SetRateBurst(rps float64, burst int) {
 	rl.refreshInternalRateLimiterImpl(&rps, &burst)
 }
 
-// Rate returns the rate per second for this rate limiter
+// Rate returns the rps for this rate limiter
 func (rl *RateLimiterImpl) Rate() float64 {
 	rl.Lock()
 	defer rl.Unlock()

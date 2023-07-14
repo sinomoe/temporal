@@ -2794,9 +2794,9 @@ type (
 	}
 )
 
-func (d *dynamicRateBurstWrapper) SetRate(rate float64) {
-	d.MutableRateBurst.SetRate(rate)
-	d.RateLimiterImpl.SetRate(rate)
+func (d *dynamicRateBurstWrapper) SetRPS(rps float64) {
+	d.MutableRateBurst.SetRPS(rps)
+	d.RateLimiterImpl.SetRPS(rps)
 }
 
 func (d *dynamicRateBurstWrapper) SetBurst(burst int) {

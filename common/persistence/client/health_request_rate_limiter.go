@@ -150,12 +150,12 @@ func (rl *HealthRequestRateLimiterImpl) refreshRate() {
 	if rl.latencyThresholdExceeded() || rl.errorThresholdExceeded() {
 		// limit exceeded, do backoff
 		rl.curRateMultiplier = math.Max(rl.minRateMultiplier, rl.curRateMultiplier-rl.curOptions.RateBackoffStepSize)
-		rl.rateLimiter.SetRate(rl.curRateMultiplier * rl.rateFn())
+		rl.rateLimiter.SetRPS(rl.curRateMultiplier * rl.rateFn())
 		rl.rateLimiter.SetBurst(int(rl.rateToBurstRatio * rl.rateFn()))
 	} else if rl.curRateMultiplier < rl.maxRateMultiplier {
 		// already doing backoff and under thresholds, increase limit
 		rl.curRateMultiplier = math.Min(rl.maxRateMultiplier, rl.curRateMultiplier+rl.curOptions.RateIncreaseStepSize)
-		rl.rateLimiter.SetRate(rl.curRateMultiplier * rl.rateFn())
+		rl.rateLimiter.SetRPS(rl.curRateMultiplier * rl.rateFn())
 		rl.rateLimiter.SetBurst(int(rl.rateToBurstRatio * rl.rateFn()))
 	}
 }
