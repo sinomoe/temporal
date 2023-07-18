@@ -485,9 +485,8 @@ func (wh *WorkflowHandler) respondWorkflowTaskCompleted(
 	namespaceId := namespace.ID(taskToken.GetNamespaceId())
 
 	histResp, err := wh.historyClient.RespondWorkflowTaskCompleted(ctx, &historyservice.RespondWorkflowTaskCompletedRequest{
-		NamespaceId:         namespaceId.String(),
-		CompleteRequest:     request,
-		WithNewWorkflowTask: false,
+		NamespaceId:     namespaceId.String(),
+		CompleteRequest: request,
 	})
 	if err != nil {
 		return nil, err
@@ -497,7 +496,7 @@ func (wh *WorkflowHandler) respondWorkflowTaskCompleted(
 		ActivityTasks:       histResp.ActivityTasks,
 		ResetHistoryEventId: histResp.ResetHistoryEventId,
 	}
-	if request.GetReturnNewWorkflowTask() && histResp != nil && histResp.StartedResponse != nil {
+	if histResp != nil && histResp.StartedResponse != nil {
 		taskToken := tasktoken.NewWorkflowTaskToken(
 			taskToken.GetNamespaceId(),
 			taskToken.GetWorkflowId(),
