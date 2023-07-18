@@ -159,7 +159,7 @@ func (c *clientImpl) ForceDeleteWorkflowExecution(
 	request *historyservice.ForceDeleteWorkflowExecutionRequest,
 	opts ...grpc.CallOption,
 ) (*historyservice.ForceDeleteWorkflowExecutionResponse, error) {
-	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	client, err := c.getClientForShardID(request.GetShardId())
 	if err != nil {
 		return nil, err
 	}
