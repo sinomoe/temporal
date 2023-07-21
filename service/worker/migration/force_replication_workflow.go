@@ -61,8 +61,8 @@ type (
 
 		// Used for verifying workflow executions were replicated successfully on target cluster.
 		EnableVerification      bool
-		TargetClusterEndpoint   string `validate:"required"`
-		VerifyIntervalInSeconds int    `validate:"gte=0"`
+		TargetClusterEndpoint   string
+		VerifyIntervalInSeconds int `validate:"gte=0"`
 
 		// Used by query handler to indicate overall progress of replication
 		LastCloseTime                      time.Time
@@ -296,6 +296,12 @@ func validateAndSetForceReplicationParams(params *ForceReplicationParams) error 
 
 	if params.VerifyIntervalInSeconds <= 0 {
 		params.VerifyIntervalInSeconds = defaultVerifyIntervalInSeconds
+	}
+
+	if params.EnableVerification {
+		if len(params.TargetClusterEndpoint) == 0 {
+			return temporal.NewNonRetryableApplicationError("InvalidArgument: TargetClusterEndpoint is required", "InvalidArgument", nil)
+		}
 	}
 
 	return nil
