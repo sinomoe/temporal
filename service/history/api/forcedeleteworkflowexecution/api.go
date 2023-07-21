@@ -22,11 +22,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package history
+package forcedeleteworkflowexecution
 
 import (
 	"context"
 	"fmt"
+	"go.temporal.io/server/api/adminservice/v1"
 	"math"
 	"time"
 
@@ -43,22 +44,18 @@ import (
 	"go.temporal.io/server/common/persistence/versionhistory"
 	"go.temporal.io/server/common/persistence/visibility/manager"
 	"go.temporal.io/server/common/persistence/visibility/store/standard/cassandra"
-	"go.temporal.io/server/service/history/api"
 )
 
-func forceDeleteWorkflowExecution(
+func Invoke(
 	ctx context.Context,
 	request *historyservice.ForceDeleteWorkflowExecutionRequest,
+	shardID int32,
 	persistenceExecutionMgr persistence.ExecutionManager,
 	persistenceVisibilityMgr manager.VisibilityManager,
 	logger log.Logger,
 ) (_ *historyservice.ForceDeleteWorkflowExecutionResponse, retError error) {
-	namespaceID := namespace.ID(request.GetNamespaceId())
-	err := api.ValidateNamespaceUUID(namespaceID)
-	if err != nil {
-		return nil, err
-	}
-	execution := request.Execution
+	req := request.Request
+	execution := req.Execution
 
 	logger = log.With(logger,
 		tag.WorkflowNamespaceID(request.NamespaceId),
@@ -68,8 +65,8 @@ func forceDeleteWorkflowExecution(
 
 	if execution.RunId == "" {
 		resp, err := persistenceExecutionMgr.GetCurrentExecution(ctx, &persistence.GetCurrentExecutionRequest{
-			ShardID:     request.ShardId,
-			NamespaceID: namespaceID.String(),
+			ShardID:     shardID,
+			NamespaceID: request.NamespaceId,
 			WorkflowID:  execution.WorkflowId,
 		})
 		if err != nil {
@@ -84,8 +81,8 @@ func forceDeleteWorkflowExecution(
 	cassVisBackend := persistenceVisibilityMgr.HasStoreName(cassandra.CassandraPersistenceName)
 
 	resp, err := persistenceExecutionMgr.GetWorkflowExecution(ctx, &persistence.GetWorkflowExecutionRequest{
-		ShardID:     request.ShardId,
-		NamespaceID: namespaceID.String(),
+		ShardID:     shardID,
+		NamespaceID: request.NamespaceId,
 		WorkflowID:  execution.WorkflowId,
 		RunID:       execution.RunId,
 	})
@@ -113,7 +110,7 @@ func forceDeleteWorkflowExecution(
 			} else if executionInfo.GetCloseTime() != nil {
 				closeTime = executionInfo.GetCloseTime()
 			} else {
-				completionEvent, err := getWorkflowCompletionEvent(ctx, request.ShardId, resp.State, persistenceExecutionMgr)
+				completionEvent, err := getWorkflowCompletionEvent(ctx, shardID, resp.State, persistenceExecutionMgr)
 				if err != nil {
 					warnMsg := "Unable to load workflow completion event, will skip deleting visibility record"
 					logger.Warn(warnMsg, tag.Error(err))
@@ -132,7 +129,7 @@ func forceDeleteWorkflowExecution(
 		// visibility queue processing is async. Operator can call this api again to delete visibility
 		// record again if this happens.
 		if err := persistenceVisibilityMgr.DeleteWorkflowExecution(ctx, &manager.VisibilityDeleteWorkflowExecutionRequest{
-			NamespaceID: namespaceID,
+			NamespaceID: namespace.ID(request.GetNamespaceId()),
 			WorkflowID:  execution.GetWorkflowId(),
 			RunID:       execution.GetRunId(),
 			TaskID:      math.MaxInt64,
@@ -144,8 +141,8 @@ func forceDeleteWorkflowExecution(
 	}
 
 	if err := persistenceExecutionMgr.DeleteCurrentWorkflowExecution(ctx, &persistence.DeleteCurrentWorkflowExecutionRequest{
-		ShardID:     request.ShardId,
-		NamespaceID: namespaceID.String(),
+		ShardID:     shardID,
+		NamespaceID: request.NamespaceId,
 		WorkflowID:  execution.WorkflowId,
 		RunID:       execution.RunId,
 	}); err != nil {
@@ -153,8 +150,8 @@ func forceDeleteWorkflowExecution(
 	}
 
 	if err := persistenceExecutionMgr.DeleteWorkflowExecution(ctx, &persistence.DeleteWorkflowExecutionRequest{
-		ShardID:     request.ShardId,
-		NamespaceID: namespaceID.String(),
+		ShardID:     shardID,
+		NamespaceID: request.NamespaceId,
 		WorkflowID:  execution.WorkflowId,
 		RunID:       execution.RunId,
 	}); err != nil {
@@ -163,7 +160,7 @@ func forceDeleteWorkflowExecution(
 
 	for _, branchToken := range branchTokens {
 		if err := persistenceExecutionMgr.DeleteHistoryBranch(ctx, &persistence.DeleteHistoryBranchRequest{
-			ShardID:     request.ShardId,
+			ShardID:     shardID,
 			BranchToken: branchToken,
 		}); err != nil {
 			warnMsg := "Failed to delete history branch, skip"
@@ -173,7 +170,9 @@ func forceDeleteWorkflowExecution(
 	}
 
 	return &historyservice.ForceDeleteWorkflowExecutionResponse{
-		Warnings: warnings,
+		Response: &adminservice.DeleteWorkflowExecutionResponse{
+			Warnings: warnings,
+		},
 	}, nil
 }
 

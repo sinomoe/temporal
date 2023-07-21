@@ -159,7 +159,7 @@ func (c *clientImpl) ForceDeleteWorkflowExecution(
 	request *historyservice.ForceDeleteWorkflowExecutionRequest,
 	opts ...grpc.CallOption,
 ) (*historyservice.ForceDeleteWorkflowExecutionResponse, error) {
-	client, err := c.getClientForShardID(request.GetShardId())
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetRequest().GetExecution().GetWorkflowId())
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +331,7 @@ func (c *clientImpl) GetWorkflowExecutionHistoryReverse(
 	request *historyservice.GetWorkflowExecutionHistoryReverseRequest,
 	opts ...grpc.CallOption,
 ) (*historyservice.GetWorkflowExecutionHistoryReverseResponse, error) {
-	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetRequest().GetExecution().GetWorkflowId())
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +355,7 @@ func (c *clientImpl) GetWorkflowExecutionRawHistoryV2(
 	request *historyservice.GetWorkflowExecutionRawHistoryV2Request,
 	opts ...grpc.CallOption,
 ) (*historyservice.GetWorkflowExecutionRawHistoryV2Response, error) {
-	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetExecution().GetWorkflowId())
+	client, err := c.getClientForWorkflowID(request.NamespaceId, request.GetRequest().GetExecution().GetWorkflowId())
 	if err != nil {
 		return nil, err
 	}
