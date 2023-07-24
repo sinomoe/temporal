@@ -390,26 +390,26 @@ func enqueueReplicationTasks(ctx workflow.Context, workflowExecutionsCh workflow
 		})
 		futures = append(futures, generateTaskFuture)
 
-		if params.EnableVerification {
-			verifyTaskFuture := workflow.ExecuteActivity(actx, a.VerifyReplicationTasks, &verifyReplicationTasksRequest{
-				TargetClusterEndpoint: params.TargetClusterEndpoint,
-				Namespace:             params.Namespace,
-				NamespaceID:           namespaceID,
-				Executions:            workflowExecutions,
-				VerifyInterval:        time.Duration(params.VerifyIntervalInSeconds) * time.Second,
-			})
+		// if params.EnableVerification {
+		verifyTaskFuture := workflow.ExecuteActivity(actx, a.VerifyReplicationTasks, &verifyReplicationTasksRequest{
+			TargetClusterEndpoint: params.TargetClusterEndpoint,
+			Namespace:             params.Namespace,
+			NamespaceID:           namespaceID,
+			Executions:            workflowExecutions,
+			VerifyInterval:        time.Duration(params.VerifyIntervalInSeconds) * time.Second,
+		})
 
-			pendingVerifyTasks++
-			selector.AddFuture(verifyTaskFuture, func(f workflow.Future) {
-				pendingVerifyTasks--
+		pendingVerifyTasks++
+		selector.AddFuture(verifyTaskFuture, func(f workflow.Future) {
+			pendingVerifyTasks--
 
-				if err := f.Get(ctx, nil); err != nil {
-					lastActivityErr = err
-				}
-			})
+			if err := f.Get(ctx, nil); err != nil {
+				lastActivityErr = err
+			}
+		})
 
-			futures = append(futures, verifyTaskFuture)
-		}
+		futures = append(futures, verifyTaskFuture)
+		//}
 
 		for pendingGenerateTasks >= params.ConcurrentActivityCount || pendingVerifyTasks >= params.ConcurrentActivityCount {
 			selector.Select(ctx) // this will block until one of the in-flight activities completes
