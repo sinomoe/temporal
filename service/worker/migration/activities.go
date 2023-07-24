@@ -648,36 +648,8 @@ const (
 	defaultNoProgressNotRetryableTimeout = 15 * time.Minute
 )
 
-func getPassiveClusters(activeCluster string, clusters []string) []string {
-	var passive []string
-	for _, cluster := range clusters {
-		if cluster != activeCluster {
-			passive = append(passive, clusters...)
-		}
-	}
-
-	return passive
-}
-
 func (a *activities) VerifyReplicationTasks(ctx context.Context, request *verifyReplicationTasksRequest) error {
 	ctx = headers.SetCallerInfo(ctx, headers.NewPreemptableCallerInfo(request.Namespace))
-
-	if len(request.TargetClusterEndpoint) == 0 {
-		nsEntry, err := a.namespaceRegistry.GetNamespace(namespace.Name(request.Namespace))
-		if err != nil {
-			return err
-		}
-
-		passiveClusters := getPassiveClusters(nsEntry.ActiveClusterName(), nsEntry.ClusterNames())
-		if len(passiveClusters) != 1 {
-			return fmt.Errorf("Failed to find migration target: %v", nsEntry)
-		}
-
-		request.TargetClusterEndpoint = fmt.Sprintf("admin.%s.cluster.tmprl-test.cloud:7233", passiveClusters[0])
-
-		a.logger.Info("VerifyReplicationTasks set target endpoint", tag.NewStringTag("TargetClusterEndpoint", request.TargetClusterEndpoint))
-	}
-
 	remoteClient := a.clientFactory.NewRemoteAdminClientWithTimeout(
 		request.TargetClusterEndpoint,
 		admin.DefaultTimeout,
