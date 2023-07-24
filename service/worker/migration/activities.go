@@ -652,7 +652,7 @@ func getPassiveClusters(activeCluster string, clusters []string) []string {
 	var passive []string
 	for _, cluster := range clusters {
 		if cluster != activeCluster {
-			passive = append(passive, clusters...)
+			passive = append(passive, cluster)
 		}
 	}
 
@@ -670,7 +670,8 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request *verify
 
 		passiveClusters := getPassiveClusters(nsEntry.ActiveClusterName(), nsEntry.ClusterNames())
 		if len(passiveClusters) != 1 {
-			return fmt.Errorf("Failed to find migration target: %v", nsEntry)
+			return fmt.Errorf("Failed to find migration target: ActiveClusterName: %v, ClusterNames: %v, passiveClusters: %v",
+				nsEntry.ActiveClusterName(), nsEntry.ClusterNames(), passiveClusters)
 		}
 
 		request.TargetClusterEndpoint = fmt.Sprintf("admin.%s.cluster.tmprl-test.cloud:7233", passiveClusters[0])

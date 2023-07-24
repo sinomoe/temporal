@@ -25,6 +25,7 @@
 package migration
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -429,4 +430,9 @@ func (s *activitiesSuite) TestGenerateReplicationTasks_Failed() {
 	lastHeartBeat := iceptor.generateReplicationRecordedHeartbeats[lastIdx]
 	// Only the generation of 1st execution suceeded.
 	s.Equal(0, lastHeartBeat)
+}
+
+func (s *activitiesSuite) TestQQ() {
+	p := getPassiveClusters("s-ying", []string{"s-ying", "s-yang"})
+	fmt.Printf("%v", p)
 }
