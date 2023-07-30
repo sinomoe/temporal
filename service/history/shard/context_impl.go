@@ -1154,14 +1154,14 @@ func (s *ContextImpl) updateShardInfo(
 	s.shardInfo.StolenSinceRenew = 0
 
 	now := cclock.NewRealTimeSource().Now()
-	previousLastUpdate := s.lastUpdated
-	persistShardInfo := s.lastUpdated.Add(s.config.ShardUpdateMinInterval()).Before(now)
-	s.lastUpdated = now
-
-	if !persistShardInfo {
+	if s.lastUpdated.Add(s.config.ShardUpdateMinInterval()).After(now) {
 		s.wUnlock()
 		return nil
 	}
+
+	// update lastUpdate here so that we don't have to grab shard lock again if UpdateShard is successful
+	previousLastUpdate := s.lastUpdated
+	s.lastUpdated = now
 
 	updatedShardInfo := trimShardInfo(s.clusterMetadata.GetAllClusterInfo(), copyShardInfo(s.shardInfo))
 	s.emitShardInfoMetricsLogsLocked(updatedShardInfo.QueueStates)
