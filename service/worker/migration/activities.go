@@ -538,13 +538,15 @@ func (a *activities) shouldSkipVerify(
 
 	if err != nil {
 		if isNotFoundServiceError(err) {
-			// Workflow could be deleted due to retention.
+			// In a rare case, workflow could be deleted due to retention and never being replicated to target.
 			return true, reasonWorkflowNotFound, nil
 		}
 
 		return false, "", err
 	}
 
+	// Zombie workflow should be a transient state. However, there is Zombie workflow on the source cluster,
+	// it is skipped to avoid such workflow being processed on the target cluster.
 	if resp.GetDatabaseMutableState().GetExecutionState().GetState() == enumsspb.WORKFLOW_EXECUTION_STATE_ZOMBIE {
 		a.forceReplicationMetricsHandler.Counter(metrics.EncounterZombieWorkflowCount.GetMetricName()).Record(1)
 		a.logger.Info("createReplicationTasks skip Zombie workflow", tags...)

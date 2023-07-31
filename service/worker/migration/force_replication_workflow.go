@@ -367,8 +367,8 @@ func enqueueReplicationTasks(ctx workflow.Context, workflowExecutionsCh workflow
 
 	ao := workflow.ActivityOptions{
 		StartToCloseTimeout: time.Hour,
-		HeartbeatTimeout:    time.Second * 30,
-		RetryPolicy:         forceReplicationActivityRetryPolicy,
+		// HeartbeatTimeout:    time.Second * 30,
+		RetryPolicy: forceReplicationActivityRetryPolicy,
 	}
 
 	actx := workflow.WithActivityOptions(ctx, ao)
