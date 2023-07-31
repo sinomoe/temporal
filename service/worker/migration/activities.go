@@ -661,13 +661,14 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request *verify
 	//  - more than NonRetryableTimeout, it means potentially we encountered #4. The activity returns
 	//    non-retryable error and force-replication workflow will restarted.
 
-	noProgressCount := 0
+	checkSkippedCount := 0
 	for {
 		// Since replication has a lag, sleep first.
 		time.Sleep(request.VerifyInterval)
 
 		lastIndex := details.NextIndex
-		if noProgressCount >= checkSkippedWorkflowThreshold {
+
+		if checkSkippedCount >= checkSkippedWorkflowThreshold {
 			skippedExecution, err := a.checkSkippedWorkflowExecution(ctx, request, &details)
 			if err != nil {
 				return response, err
@@ -677,7 +678,7 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request *verify
 				response.SkippedWorkflowExecutions = append(response.SkippedWorkflowExecutions, *skippedExecution)
 			}
 
-			noProgressCount = 0
+			checkSkippedCount = 0
 		}
 
 		verified, err := a.verifyReplicationTasks(ctx, request, &details, remoteClient)
@@ -685,18 +686,18 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request *verify
 			return response, err
 		}
 
+		if lastIndex < details.NextIndex {
+			// Update CheckPoint where there is a progress
+			details.CheckPoint = time.Now()
+			checkSkippedCount = 0
+		} else {
+			checkSkippedCount++
+		}
+
 		activity.RecordHeartbeat(ctx, details)
 
 		if verified == true {
 			return response, nil
-		}
-
-		if lastIndex < details.NextIndex {
-			// Update CheckPoint where there is a progress
-			details.CheckPoint = time.Now()
-			noProgressCount = 0
-		} else {
-			noProgressCount++
 		}
 
 		diff := time.Now().Sub(details.CheckPoint)
