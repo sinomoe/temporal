@@ -247,6 +247,11 @@ func (s *ContextImpl) GetEngine(
 func (s *ContextImpl) AssertOwnership(
 	ctx context.Context,
 ) error {
+	if err := s.ioSemaphore.Acquire(ctx, 1); err != nil {
+		return err
+	}
+	defer s.ioSemaphore.Release(1)
+
 	s.wLock()
 
 	if err := s.errorByState(); err != nil {
@@ -1150,6 +1155,11 @@ func (s *ContextImpl) updateShardInfo(
 	updateFnLocked func(),
 ) error {
 	s.wLock()
+	if err := s.errorByState(); err != nil {
+		s.wUnlock()
+		return err
+	}
+
 	updateFnLocked()
 	s.shardInfo.StolenSinceRenew = 0
 
@@ -1171,6 +1181,8 @@ func (s *ContextImpl) updateShardInfo(
 	}
 	s.wUnlock()
 
+	// TODO: check if release shard lock is safe here
+
 	if err := s.ioSemaphore.Acquire(s.lifecycleCtx, 1); err != nil {
 		return err
 	}
@@ -1184,7 +1196,7 @@ func (s *ContextImpl) updateShardInfo(
 		s.wLock()
 		defer s.wUnlock()
 		// revert lastUpdated time so that operation can be retried
-		s.lastUpdated = previousLastUpdate
+		s.lastUpdated = util.MaxTime(previousLastUpdate, s.lastUpdated)
 		return s.handleWriteErrorLocked(request.PreviousRangeID, err)
 	}
 
@@ -1194,9 +1206,7 @@ func (s *ContextImpl) updateShardInfo(
 func (s *ContextImpl) emitShardInfoMetricsLogsLocked(
 	queueStates map[int32]*persistencespb.QueueState,
 ) {
-	if !s.config.EmitShardLagLog() {
-		return
-	}
+	emitShardLagLog := s.config.EmitShardLagLog()
 
 	metricsHandler := s.GetMetricsHandler().WithTags(metrics.OperationTag(metrics.ShardInfoScope))
 
@@ -1214,7 +1224,7 @@ Loop:
 				continue Loop
 			}
 			lag := s.taskKeyManager.getExclusiveReaderHighWatermark(category).TaskID - minTaskKey.TaskID
-			if lag > logWarnImmediateTaskLag {
+			if emitShardLagLog && lag > logWarnImmediateTaskLag {
 				s.contextTaggedLogger.Warn(
 					"Shard queue lag exceeds warn threshold.",
 					tag.ShardQueueAcks(category.Name(), minTaskKey.TaskID),
@@ -1231,7 +1241,7 @@ Loop:
 				continue Loop
 			}
 			lag := s.taskKeyManager.getExclusiveReaderHighWatermark(category).FireTime.Sub(minTaskKey.FireTime)
-			if lag > logWarnScheduledTaskLag {
+			if emitShardLagLog && lag > logWarnScheduledTaskLag {
 				s.contextTaggedLogger.Warn(
 					"Shard queue lag exceeds warn threshold.",
 					tag.ShardQueueAcks(category.Name(), minTaskKey.FireTime),
@@ -1938,7 +1948,7 @@ func newContext(
 
 	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
 
-	ioConcurrency := historyConfig.AcquireShardConcurrency()
+	ioConcurrency := historyConfig.ShardIOConcurrency()
 	if persistenceConfig.DataStores[persistenceConfig.DefaultStore].Cassandra != nil {
 		ioConcurrency = 1
 	}
