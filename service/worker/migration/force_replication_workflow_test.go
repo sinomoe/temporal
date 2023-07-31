@@ -85,7 +85,7 @@ func TestForceReplicationWorkflow(t *testing.T) {
 	}).Times(totalPageCount)
 
 	env.OnActivity(a.GenerateReplicationTasks, mock.Anything, mock.Anything).Return(nil).Times(totalPageCount)
-	env.OnActivity(a.VerifyReplicationTasks, mock.Anything, mock.Anything).Return(nil).Times(totalPageCount)
+	env.OnActivity(a.VerifyReplicationTasks, mock.Anything, mock.Anything).Return(verifyReplicationTasksResponse{}, nil).Times(totalPageCount)
 
 	env.RegisterWorkflow(ForceTaskQueueUserDataReplicationWorkflow)
 	env.OnActivity(a.SeedReplicationQueueWithUserDataEntries, mock.Anything, mock.Anything).Return(nil).Times(1)
@@ -152,7 +152,7 @@ func TestForceReplicationWorkflow_ContinueAsNew(t *testing.T) {
 	}).Times(maxPageCountPerExecution)
 
 	env.OnActivity(a.GenerateReplicationTasks, mock.Anything, mock.Anything).Return(nil).Times(maxPageCountPerExecution)
-	env.OnActivity(a.VerifyReplicationTasks, mock.Anything, mock.Anything).Return(nil).Times(maxPageCountPerExecution)
+	env.OnActivity(a.VerifyReplicationTasks, mock.Anything, mock.Anything).Return(verifyReplicationTasksResponse{}, nil).Times(maxPageCountPerExecution)
 
 	env.RegisterWorkflow(ForceTaskQueueUserDataReplicationWorkflow)
 	env.OnActivity(a.SeedReplicationQueueWithUserDataEntries, mock.Anything, mock.Anything).Return(nil)
@@ -346,6 +346,7 @@ func TestForceReplicationWorkflow_VerifyReplicationTaskNonRetryableError(t *test
 	var errMsg = "mock verify replication tasks error"
 	env.OnActivity(a.GenerateReplicationTasks, mock.Anything, mock.Anything).Return(nil).Times(1)
 	env.OnActivity(a.VerifyReplicationTasks, mock.Anything, mock.Anything).Return(
+		verifyReplicationTasksResponse{},
 		temporal.NewNonRetryableApplicationError(errMsg, "", nil),
 	).Times(1)
 

@@ -395,7 +395,7 @@ func enqueueReplicationTasks(ctx workflow.Context, workflowExecutionsCh workflow
 		futures = append(futures, generateTaskFuture)
 
 		if params.EnableVerification {
-			verifyTaskFuture := workflow.ExecuteActivity(actx, a.VerifyReplicationTasks, verifyReplicationTasksRequest{
+			verifyTaskFuture := workflow.ExecuteActivity(actx, a.VerifyReplicationTasks, &verifyReplicationTasksRequest{
 				TargetClusterEndpoint: params.TargetClusterEndpoint,
 				Namespace:             params.Namespace,
 				NamespaceID:           namespaceID,

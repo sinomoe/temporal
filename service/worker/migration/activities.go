@@ -608,6 +608,7 @@ func (a *activities) verifyReplicationTasks(
 
 		case *serviceerror.NotFound:
 			a.forceReplicationMetricsHandler.WithTags(metrics.NamespaceTag(request.Namespace)).Counter(metrics.VerifyReplicationTaskNotFound.GetMetricName()).Record(1)
+			details.LastNotFoundWorkflowExecution = we
 			return false, nil
 
 		default:
@@ -622,11 +623,11 @@ func (a *activities) verifyReplicationTasks(
 }
 
 const (
-	waitForSkippedCheckThreshold         = 10
+	checkSkippedWorkflowThreshold        = 10
 	defaultNoProgressNotRetryableTimeout = 15 * time.Minute
 )
 
-func (a *activities) VerifyReplicationTasks(ctx context.Context, request verifyReplicationTasksRequest) (verifyReplicationTasksResponse, error) {
+func (a *activities) VerifyReplicationTasks(ctx context.Context, request *verifyReplicationTasksRequest) (verifyReplicationTasksResponse, error) {
 	ctx = headers.SetCallerInfo(ctx, headers.NewPreemptableCallerInfo(request.Namespace))
 	remoteClient := a.clientFactory.NewRemoteAdminClientWithTimeout(
 		request.TargetClusterEndpoint,
@@ -660,14 +661,14 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request verifyR
 	//  - more than NonRetryableTimeout, it means potentially we encountered #4. The activity returns
 	//    non-retryable error and force-replication workflow will restarted.
 
-	waitForSkippedCheckCount := 0
+	noProgressCount := 0
 	for {
 		// Since replication has a lag, sleep first.
 		time.Sleep(request.VerifyInterval)
 
 		lastIndex := details.NextIndex
-		if waitForSkippedCheckCount > waitForSkippedCheckThreshold {
-			skippedExecution, err := a.checkSkippedWorkflowExecution(ctx, &request, &details)
+		if noProgressCount >= checkSkippedWorkflowThreshold {
+			skippedExecution, err := a.checkSkippedWorkflowExecution(ctx, request, &details)
 			if err != nil {
 				return response, err
 			}
@@ -676,15 +677,15 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request verifyR
 				response.SkippedWorkflowExecutions = append(response.SkippedWorkflowExecutions, *skippedExecution)
 			}
 
-			waitForSkippedCheckCount = 0
+			noProgressCount = 0
 		}
 
-		waitForSkippedCheckCount++
-
-		verified, err := a.verifyReplicationTasks(ctx, &request, &details, remoteClient)
+		verified, err := a.verifyReplicationTasks(ctx, request, &details, remoteClient)
 		if err != nil {
 			return response, err
 		}
+
+		activity.RecordHeartbeat(ctx, details)
 
 		if verified == true {
 			return response, nil
@@ -693,9 +694,10 @@ func (a *activities) VerifyReplicationTasks(ctx context.Context, request verifyR
 		if lastIndex < details.NextIndex {
 			// Update CheckPoint where there is a progress
 			details.CheckPoint = time.Now()
+			noProgressCount = 0
+		} else {
+			noProgressCount++
 		}
-
-		activity.RecordHeartbeat(ctx, details)
 
 		diff := time.Now().Sub(details.CheckPoint)
 		if diff > defaultNoProgressNotRetryableTimeout {
