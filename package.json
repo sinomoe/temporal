@@ -1,0 +1,10 @@
+{
+  "name": "oss-cicd",
+  "version": "1.0.0",
+  "description": "CI/CD E2E tests for OSS",
+  "main": "index.js",
+  "license": "ISC",
+  "devDependencies": {
+    "fs-extra": "^11.1.1"
+  }
+}

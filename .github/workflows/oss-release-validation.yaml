@@ -1,0 +1,43 @@
+name: Validate OSS Server Release
+run-name: Validate OSS Server Release ${{ github.event.client_payload.commit }} by ${{ github.actor }}
+
+on:
+  repository_dispatch:
+    types: [validate-oss-release]
+  push:
+    branches:
+      - oss-release-gha
+
+jobs:
+  validate-oss-release:
+    runs-on: ubuntu-latest
+    env:
+      TEMPORAL_TLS_CERT: ${{ secrets.TEMPORAL_TLS_CERT }}
+      TEMPORAL_TLS_KEY: ${{ secrets.TEMPORAL_TLS_KEY }}
+      INVALID_SECRET: ${{ secrets.INVALID_SECRET }}
+      TEMPORAL_TLS_DIR: /tmp/temporal-certs
+    steps:
+      - run: |
+          echo "Fake step. Commit being validated is ${{ github.event.client_payload.commit }}"
+          echo "TEMPORAL_TLS_KEY length is $(echo $TEMPORAL_TLS_KEY | wc -c)"
+          echo "INVALID_SECRET length is $(echo $INVALID_SECRET | wc -c)"
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm install
+      - run: |
+          curl -sSf https://temporal.download/cli.sh > /tmp/install-temporal.sh
+          sh /tmp/install-temporal.sh --dir /usr/local
+      - run: |
+          node scripts/create-certs-dir.js $TEMPORAL_TLS_DIR
+          wc -c $TEMPORAL_TLS_DIR/tls.pem
+          wc -c $TEMPORAL_TLS_DIR/tls.key
+      - run: |
+          echo "$TEMPORAL_TLS_CERT" > $TEMPORAL_TLS_DIR/tls.pem
+          echo "$TEMPORAL_TLS_KEY" > $TEMPORAL_TLS_DIR/tls.key
+          wc -c $TEMPORAL_TLS_DIR/tls.pem
+          wc -c $TEMPORAL_TLS_DIR/tls.key
+          sha256sum $TEMPORAL_TLS_DIR/tls.pem
+          sha256sum $TEMPORAL_TLS_DIR/tls.key
+          TEMPORAL_TLS_CERT=$TEMPORAL_TLS_DIR/tls.pem TEMPORAL_TLS_KEY=$TEMPORAL_TLS_DIR/tls.key temporal workflow start --address=oss-cicd.e2e.tmprl.cloud:7233 --namespace=oss-cicd.e2e --task-queue=oss-e2e --type=CassEsPipeline --input '{"values": {"temporal": {"server.image.repository": "temporaliotest/server", "server.image.tag": "sha-3522744", "admintools.image.repository": "temporaliotest/admin-tools", "admintools.image.tag": "sha-3522744"}}}'
+      - run: |
+          echo "Fake final step"
