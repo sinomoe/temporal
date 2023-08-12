@@ -1277,6 +1277,7 @@ var (
 	VersionCheckFailedCount                  = NewCounterDef("version_check_failed")
 	VersionCheckRequestFailedCount           = NewCounterDef("version_check_request_failed")
 	VersionCheckLatency                      = NewTimerDef("version_check_latency")
+	HTTPServiceRequests                      = NewCounterDef("http_service_requests")
 
 	// History
 	CacheRequests                                = NewCounterDef("cache_requests")

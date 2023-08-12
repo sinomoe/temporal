@@ -25,7 +25,6 @@
 package frontend
 
 import (
-	"context"
 	"fmt"
 	"net"
 
@@ -60,6 +59,7 @@ import (
 	"go.temporal.io/server/common/resolver"
 	"go.temporal.io/server/common/resource"
 	"go.temporal.io/server/common/rpc"
+	"go.temporal.io/server/common/rpc/encryption"
 	"go.temporal.io/server/common/rpc/interceptor"
 	"go.temporal.io/server/common/sdk"
 	"go.temporal.io/server/common/searchattribute"
@@ -89,12 +89,13 @@ var Module = fx.Options(
 	fx.Provide(ThrottledLoggerRpsFnProvider),
 	fx.Provide(PersistenceRateLimitingParamsProvider),
 	fx.Provide(FEReplicatorNamespaceReplicationQueueProvider),
-	fx.Provide(func(so []grpc.ServerOption) *grpc.Server { return grpc.NewServer(so...) }),
+	fx.Provide(func(so GrpcServerOptions) *grpc.Server { return grpc.NewServer(so.Options...) }),
 	fx.Provide(HandlerProvider),
 	fx.Provide(AdminHandlerProvider),
 	fx.Provide(OperatorHandlerProvider),
 	fx.Provide(NewVersionChecker),
 	fx.Provide(ServiceResolverProvider),
+	fx.Provide(HTTPAPIServerProvider),
 	fx.Provide(NewServiceProvider),
 	fx.Invoke(ServiceLifetimeHooks),
 )
@@ -103,6 +104,7 @@ func NewServiceProvider(
 	serviceConfig *Config,
 	server *grpc.Server,
 	healthServer *health.Server,
+	httpAPIServer *HTTPAPIServer,
 	handler Handler,
 	adminHandler *AdminHandler,
 	operatorHandler *OperatorHandlerImpl,
@@ -118,6 +120,7 @@ func NewServiceProvider(
 		serviceConfig,
 		server,
 		healthServer,
+		httpAPIServer,
 		handler,
 		adminHandler,
 		operatorHandler,
@@ -129,6 +132,13 @@ func NewServiceProvider(
 		faultInjectionDataStoreFactory,
 		membershipMonitor,
 	)
+}
+
+// GrpcServerOptions are the options to build the frontend gRPC server along
+// with the interceptors that are already set in the options.
+type GrpcServerOptions struct {
+	Options           []grpc.ServerOption
+	UnaryInterceptors []grpc.UnaryServerInterceptor
 }
 
 func GrpcServerOptionsProvider(
@@ -152,7 +162,7 @@ func GrpcServerOptionsProvider(
 	audienceGetter authorization.JWTAudienceMapper,
 	customInterceptors []grpc.UnaryServerInterceptor,
 	metricsHandler metrics.Handler,
-) []grpc.ServerOption {
+) GrpcServerOptions {
 	kep := keepalive.EnforcementPolicy{
 		MinTime:             serviceConfig.KeepAliveMinTime(),
 		PermitWithoutStream: serviceConfig.KeepAlivePermitWithoutStream(),
@@ -211,13 +221,14 @@ func GrpcServerOptionsProvider(
 		telemetryInterceptor.StreamIntercept,
 	}
 
-	return append(
+	grpcServerOptions = append(
 		grpcServerOptions,
 		grpc.KeepaliveParams(kp),
 		grpc.KeepaliveEnforcementPolicy(kep),
 		grpc.ChainUnaryInterceptor(unaryInterceptors...),
 		grpc.ChainStreamInterceptor(streamInterceptor...),
 	)
+	return GrpcServerOptions{Options: grpcServerOptions, UnaryInterceptors: unaryInterceptors}
 }
 
 func ConfigProvider(
@@ -601,26 +612,47 @@ func HandlerProvider(
 	return wfHandler
 }
 
-func ServiceLifetimeHooks(
-	lc fx.Lifecycle,
-	svcStoppedCh chan struct{},
-	svc *Service,
-) {
-	lc.Append(
-		fx.Hook{
-			OnStart: func(context.Context) error {
-				go func(svc common.Daemon, svcStoppedCh chan<- struct{}) {
-					// Start is blocked until Stop() is called.
-					svc.Start()
-					close(svcStoppedCh)
-				}(svc, svcStoppedCh)
-
-				return nil
-			},
-			OnStop: func(ctx context.Context) error {
-				svc.Stop()
-				return nil
-			},
-		},
+// HTTPAPIServerProvider provides an HTTP API server if enabled or nil
+// otherwise.
+func HTTPAPIServerProvider(
+	cfg *config.Config,
+	serviceName primitives.ServiceName,
+	serviceConfig *Config,
+	grpcListener net.Listener,
+	tlsConfigProvider encryption.TLSConfigProvider,
+	handler Handler,
+	grpcServerOptions GrpcServerOptions,
+	metricsHandler metrics.Handler,
+	namespaceRegistry namespace.Registry,
+	logger log.Logger,
+) (*HTTPAPIServer, error) {
+	fmt.Printf("[frontend fx][HTTPAPIServerProvider] begin\n")
+	// If the service is not the frontend service, HTTP API is disabled
+	if serviceName != primitives.FrontendService {
+		fmt.Printf("[frontend fx][HTTPAPIServerProvider] not frontend service: done\n")
+		return nil, nil
+	}
+	fmt.Printf("[frontend fx][HTTPAPIServerProvider] checking port...\n")
+	// If HTTP API port is 0, it is disabled
+	rpcConfig := cfg.Services[string(serviceName)].RPC
+	if rpcConfig.HTTPPort == 0 {
+		fmt.Printf("[frontend fx][HTTPAPIServerProvider] httpPort not set or is 0: done\n")
+		return nil, nil
+	}
+	fmt.Printf("[frontend fx][HTTPAPIServerProvider] starting http api server listening on port %d...\n", rpcConfig.HTTPPort)
+	return NewHTTPAPIServer(
+		serviceConfig,
+		rpcConfig,
+		grpcListener,
+		tlsConfigProvider,
+		handler,
+		grpcServerOptions.UnaryInterceptors,
+		metricsHandler,
+		namespaceRegistry,
+		logger,
 	)
+}
+
+func ServiceLifetimeHooks(lc fx.Lifecycle, svc *Service) {
+	lc.Append(fx.StartStopHook(svc.Start, svc.Stop))
 }
