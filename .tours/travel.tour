@@ -1,0 +1,42 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "worker poll task travel",
+  "steps": [
+    {
+      "file": "../../../go/pkg/mod/go.temporal.io/sdk@v1.23.0/internal/internal_task_pollers.go",
+      "description": "客户端从这里轮询 task",
+      "line": 912
+    },
+    {
+      "file": "../../../go/pkg/mod/go.temporal.io/api@v1.23.0/workflowservice/v1/service.pb.go",
+      "description": "这个方法为客户端提供 poll task 能力",
+      "line": 1644
+    },
+    {
+      "file": "api/matchingservice/v1/service.pb.go",
+      "description": "从 queue 中 poll task，客户端请求 fronend 后由 matching service client 继续向 matching service server 发起请求",
+      "line": 186
+    },
+    {
+      "file": "api/matchingservice/v1/service.pb.go",
+      "description": "matching service server 处理 PollActivityTaskQueue 的地方",
+      "line": 465
+    },
+    {
+      "file": "service/matching/handler.go",
+      "description": "next",
+      "line": 182
+    },
+    {
+      "file": "service/matching/matchingEngine.go",
+      "description": "next, poll 在 matching service 中的真正实现部分",
+      "line": 590
+    },
+    {
+      "file": "service/matching/matchingEngine.go",
+      "description": "matching service 获取一个 task 的实现",
+      "line": 1196
+    }
+  ],
+  "ref": "tour-v1.21.4"
+}
