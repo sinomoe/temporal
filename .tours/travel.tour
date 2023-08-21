@@ -33,9 +33,44 @@
       "line": 590
     },
     {
+      "file": "service/matching/taskReader.go",
+      "description": "task pump， task 从这里发到 client",
+      "line": 161
+    },
+    {
+      "file": "service/matching/taskQueueManager.go",
+      "description": "管理 task queue",
+      "line": 304
+    },
+    {
+      "file": "service/matching/taskQueueManager.go",
+      "description": "maybe？管理将 task 写入 queue 的请求",
+      "line": 313
+    },
+    {
+      "file": "service/matching/taskQueueManager.go",
+      "description": "maybe？管理将 task 从 queue 中读出来，并写入发送队列",
+      "line": 314
+    },
+    {
+      "file": "service/matching/taskReader.go",
+      "description": "dispatchBufferedTasks 派发缓存的 task",
+      "line": 90
+    },
+    {
+      "file": "service/matching/taskReader.go",
+      "description": "从数据库批量获取 task，并将 task 写入缓冲队列，由上述 dispatchBufferedTasks 协程处理",
+      "line": 91
+    },
+    {
       "file": "service/matching/matchingEngine.go",
       "description": "matching service 获取一个 task 的实现",
       "line": 1196
+    },
+    {
+      "file": "service/matching/handler.go",
+      "description": "将 activity 写入活跃的 poller 或者写入数据库等待后续 poller 消费",
+      "line": 133
     }
   ],
   "ref": "tour-v1.21.4"
