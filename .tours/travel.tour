@@ -71,6 +71,11 @@
       "file": "service/matching/handler.go",
       "description": "将 activity 写入活跃的 poller 或者写入数据库等待后续 poller 消费",
       "line": 133
+    },
+    {
+      "file": "api/matchingservice/v1/service.pb.go",
+      "description": "处理提交任务的 handler，client 将任务提交上来后，首先尝试将 task 同步的分发给可用的 poller，如果不能，则将 task 写入数据库，等待后续异步派发",
+      "line": 502
     }
   ],
   "ref": "tour-v1.21.4"
