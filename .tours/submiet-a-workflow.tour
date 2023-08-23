@@ -1,0 +1,47 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "submiet a workflow",
+  "steps": [
+    {
+      "file": "api/matchingservice/v1/service.pb.go",
+      "description": "当客户端使用 ExecuteWorkflow 提交并执行一个工作流时，最终会通过 matching engine 将 task 写入 poller 或者数据库",
+      "line": 483
+    },
+    {
+      "file": "client/history/client_gen.go",
+      "description": "客户端 ExecuteWorkflow 之后 grpc 到服务端的实际 handler 入口",
+      "line": 959
+    },
+    {
+      "file": "client/history/client_gen.go",
+      "description": "通过 (c *historyServiceClient) StartWorkflowExecution 发起 rpc 请求",
+      "line": 973
+    },
+    {
+      "file": "api/historyservice/v1/service.pb.go",
+      "description": "调用此接口",
+      "line": 333
+    },
+    {
+      "file": "api/historyservice/v1/service.pb.go",
+      "description": "由这里处理创建 workflow execution 的请求 handler",
+      "line": 1109
+    },
+    {
+      "file": "service/history/handler.go",
+      "description": "经过两次 rpc 之后 client->service->history service，start workflow execution 的请求最终到了这里",
+      "line": 512
+    },
+    {
+      "file": "service/history/handler.go",
+      "description": "选择一个分片，并在这个分片上执行 WorkflowExecution",
+      "line": 533
+    },
+    {
+      "file": "service/history/historyEngine.go",
+      "description": "接着到这里",
+      "line": 346
+    }
+  ],
+  "ref": "tour-v1.21.4"
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://aka.ms/codetour-schema",
+  "title": "misc",
+  "steps": [
+    {
+      "file": "common/tqname/tqname.go",
+      "description": "用户传递的队列名称会被转化为低级表示： `/_sys/<base name>/[<version set id>:]<partition id>`，使用这种方法可以分片、版本信息包含在队列中",
+      "line": 61
+    }
+  ],
+  "ref": "tour-v1.21.4"
+}
