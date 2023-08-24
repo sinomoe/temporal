@@ -8,6 +8,11 @@
       "line": 483
     },
     {
+      "file": "service/history/api/create_workflow_util.go",
+      "description": "使用 workflow execution 的 runid 作为 tree id 来维护所有 task 的历史",
+      "line": 156
+    },
+    {
       "file": "client/history/client_gen.go",
       "description": "客户端 ExecuteWorkflow 之后 grpc 到服务端的实际 handler 入口",
       "line": 959
